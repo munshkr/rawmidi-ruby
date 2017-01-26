@@ -1,5 +1,5 @@
 require "rawmidi/version"
 
-module Rawmidi
+module RawMIDI
   # Your code goes here...
 end

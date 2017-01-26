@@ -5,7 +5,7 @@ require 'rawmidi/version'
 
 Gem::Specification.new do |spec|
   spec.name          = "rawmidi"
-  spec.version       = Rawmidi::VERSION
+  spec.version       = RawMIDI::VERSION
   spec.authors       = ["Damián Silvani"]
   spec.email         = ["munshkr@gmail.com"]
 

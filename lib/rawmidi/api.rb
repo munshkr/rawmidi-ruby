@@ -1,6 +1,6 @@
 require 'ffi'
 
-module Rawmidi
+module RawMIDI
   module API
     extend FFI::Library
 

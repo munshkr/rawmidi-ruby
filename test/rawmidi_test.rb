@@ -1,8 +1,8 @@
 require 'test_helper'
 
-class RawmidiTest < Minitest::Test
+class RawMIDITest < Minitest::Test
   def test_that_it_has_a_version_number
-    refute_nil ::Rawmidi::VERSION
+    refute_nil ::RawMIDI::VERSION
   end
 
   def test_it_does_something_useful
