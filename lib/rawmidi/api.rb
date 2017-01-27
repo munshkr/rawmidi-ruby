@@ -1,13 +1,21 @@
 require 'ffi'
 
 module RawMIDI
+  module LibC
+    extend FFI::Library
+    ffi_lib FFI::Library::LIBC
+
+    # Needed for some functions that expects the user frees memory after use
+    attach_function :free, [:pointer], :void
+  end
+
   module API
     extend FFI::Library
 
     ffi_lib 'libasound'
 
-    enum :rawmidi_stream, [:output, :input]
-    #enum :rawmidi_type,   [:type_hw, :type_shm, :type_inet, :type_virtual]
+    enum :snd_ctl_mode, [:default, :nonblock, :async, :readonly]
+    enum :snd_rawmidi_stream, [:output, :input]
 
     # snd_ctl
     class SndCtl < FFI::Struct
@@ -38,12 +46,16 @@ module RawMIDI
 
     # int snd_card_next(card&)
     attach_function :snd_card_next, [:pointer], :int
+    # int snd_card_get_name(int card, char **name)
+    attach_function :snd_card_get_name, [:int, :pointer], :int
+    # int snd_card_get_longname(int card, char **name)
+    attach_function :snd_card_get_longname, [:int, :pointer], :int
 
     # const char* snd_strerror(int error_number)
     attach_function :snd_strerror, [:int], :string
 
     # int snd_ctl_open(snd_ctl_t** ctl, const char* name, int mode)
-    attach_function :snd_ctl_open, [:pointer, :pointer, :int], :int
+    attach_function :snd_ctl_open, [:pointer, :pointer, :snd_ctl_mode], :int
 
     # int snd_ctl_close(snd_ctl_t* ctl)
     attach_function :snd_ctl_close, [:pointer], :int
@@ -62,36 +74,34 @@ module RawMIDI
     # void snd_rawmidi_info_set_device(snd_rawmidi_info_t *obj, unsigned int val)
     attach_function :snd_rawmidi_info_set_device, [:pointer, :uint], :void
     # void snd_rawmidi_info_set_stream(snd_rawmidi_info_t *obj, snd_rawmidi_stream_t val)
-    attach_function :snd_rawmidi_info_set_stream, [:pointer, :rawmidi_stream], :void
+    attach_function :snd_rawmidi_info_set_stream, [:pointer, :snd_rawmidi_stream], :void
     # unsigned int snd_rawmidi_info_get_subdevices_count(const snd_rawmidi_info_t *obj)
     attach_function :snd_rawmidi_info_get_subdevices_count, [:pointer], :uint
     # const char* snd_rawmidi_info_get_name(const snd_rawmidi_info_t *obj)
     attach_function :snd_rawmidi_info_get_name, [:pointer], :string
 
 
-    Error = Class.new(StandardError)
-
-    def self.print_midi_ports
+    def self.card_ids
+      res = []
       card_p = FFI::MemoryPointer.new(:int).write_int(-1)
-      status = snd_card_next(card_p)
-      raise Error, snd_strerror(status) if status < 0
 
-      card = card_p.read_int
-      raise Error, 'no sound cards found' if card < 0
-
-      while card >= 0 do
-        list_midi_devices_on_card(card)
+      loop do
         status = snd_card_next(card_p)
         raise Error, snd_strerror(status) if status < 0
-        card = card_p.read_int
+        id = card_p.read_int
+
+        break if id < 0
+        res << id
       end
+
+      res
     end
 
-    def self.list_midi_devices_on_card(card)
-      name = "hw:#{card}"
-      ctl_pp = FFI::MemoryPointer.new(:pointer)
+    def self.device_ids(card)
+      res = []
 
-      status = snd_ctl_open(ctl_pp, name, 0)
+      ctl_pp = FFI::MemoryPointer.new(:pointer)
+      status = snd_ctl_open(ctl_pp, "hw:#{card}", :default) # FIXME: readonly?
       if status < 0
         raise Error, "cannot open control for card #{card}: #{snd_strerror(status)}"
       end
@@ -107,13 +117,40 @@ module RawMIDI
         end
 
         device = device_p.read_int
-        list_subdevice_info(ctl_p, card, device) if device >= 0
 
         break if device < 0
+        res << device
       end
 
       snd_ctl_close(ctl_p)
+
+      res
     end
+
+    def self.card_get_name(id)
+      name_pp = FFI::MemoryPointer.new(:pointer)
+      status = API.snd_card_get_name(id, name_pp)
+      raise Error, snd_strerror(status) if status < 0
+
+      name_p = name_pp.read_pointer
+      name = name_p.read_string
+      LibC.free(name_p)
+
+      name
+    end
+
+    def self.card_get_longname(id)
+      name_pp = FFI::MemoryPointer.new(:pointer)
+      status = API.snd_card_get_longname(id, name_pp)
+      raise Error, snd_strerror(status) if status < 0
+
+      name_p = name_pp.read_pointer
+      name = name_p.read_string
+      LibC.free(name_p)
+
+      name
+    end
+
 
     def self.list_subdevice_info(ctl_p, card, device)
       info_p = FFI::MemoryPointer.new(:char, SndRawMIDIInfo.size, true)
@@ -133,6 +170,23 @@ module RawMIDI
 
       name = snd_rawmidi_info_get_name(info_p)
       puts "name: #{name}"
+    end
+
+    def self.is_output(ctl, device, sub)
+=begin
+   snd_rawmidi_info_alloca(&info);
+   snd_rawmidi_info_set_device(info, device);
+   snd_rawmidi_info_set_subdevice(info, sub);
+   snd_rawmidi_info_set_stream(info, SND_RAWMIDI_STREAM_OUTPUT);
+
+   if ((status = snd_ctl_rawmidi_info(ctl, info)) < 0 && status != -ENXIO) {
+      return status;
+   } else if (status == 0) {
+      return 1;
+   }
+
+   return 0;
+=end
     end
   end
 end

@@ -1,5 +1,8 @@
 require "rawmidi/version"
+require 'rawmidi/card'
+require 'rawmidi/device'
 
 module RawMIDI
-  # Your code goes here...
+  class Error < StandardError
+  end
 end
