@@ -6,12 +6,8 @@ module RawMIDI
   class Card
     attr_reader :id, :name
 
-    class << self
-      def all
-        API::Card.each_id.map { |id| new(id) }
-      end
-
-      alias_method :[], :new
+    def self.all
+      API::Card.each_id.map { |id| new(id) }
     end
 
     def initialize(id)
@@ -23,21 +19,16 @@ module RawMIDI
       "hw:#{@id}"
     end
 
-    def devices
-      API::Device.each(@id).flat_map do |id, info|
-        devs = []
-        devs << Input.new(self, id, name: info[:name]) if info[:input]
-        devs << Output.new(self, id, name: info[:name]) if info[:output]
-        devs
+    def inputs
+      API::Device.each(@id).select { |_, info| info[:input] }.map do |id, info|
+        Input.new(self, id, name: info[:name])
       end
     end
 
-    def inputs
-      devices.select(&:output?)
-    end
-
     def outputs
-      devices.select(&:output?)
+      API::Device.each(@id).select { |_, info| info[:output] }.map do |id, info|
+        Output.new(self, id, name: info[:name])
+      end
     end
 
     def longname

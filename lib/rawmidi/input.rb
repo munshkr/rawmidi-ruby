@@ -6,7 +6,7 @@ module RawMIDI
     include Device
 
     def self.all
-      Card.all.flat_map(&:devices).select(&:input?)
+      Card.all.flat_map(&:inputs)
     end
 
     def input?

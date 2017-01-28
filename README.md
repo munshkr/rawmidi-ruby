@@ -34,7 +34,7 @@ RawMIDI::Card.all
 #=> [#<RawMIDI::Card:0x002af7bb0f26ec hw:0 "HDA Intel PCH">,
      #<RawMIDI::Card:0x002af7bb0f269c hw:1 "CH345">]
 
-card = RawMIDI::Card[1]
+card = RawMIDI::Card.new(1)
 #=> #<RawMIDI::Card:0x002af7bb094b3c hw:1 "CH345">
 
 card.outputs

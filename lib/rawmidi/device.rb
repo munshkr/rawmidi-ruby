@@ -2,9 +2,11 @@ module RawMIDI
   module Device
     attr_reader :id, :card, :name
 
-    def initialize(card, id, **info)
+    def initialize(card_or_id, id, **info)
+      @card = card_or_id.is_a?(Card) ? card_or_id : Card.new(card_or_id)
       @id = id
-      @card = card
+
+      info = get_subdevice_info if info.empty?
       @name = info[:name]
       @input = info[:input]
       @output = info[:output]
@@ -37,6 +39,14 @@ module RawMIDI
 
     def closed?
       !open?
+    end
+
+    private
+
+    def get_subdevice_info
+      API::Card.with_control(@card.id) do |ctl_p|
+        API::Device.subdevice_info(ctl_p, @id)
+      end
     end
   end
 end
