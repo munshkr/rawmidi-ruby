@@ -25,5 +25,9 @@ module RawMIDI
     def longname
       API::Card.get_longname(@id)
     end
+
+    def inspect
+      "#<#{self.class.name}:#{"0x%014x" % object_id} hw:#{@id} #{@name.inspect}>"
+    end
   end
 end
