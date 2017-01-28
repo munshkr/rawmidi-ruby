@@ -18,6 +18,10 @@ module RawMIDI
       @name = API::Card.get_name(id)
     end
 
+    def handle_name
+      "hw:#{@id}"
+    end
+
     def devices
       API::Device.each(@id).map { |id, info| Device.new(self, id, **info) }
     end
@@ -27,7 +31,7 @@ module RawMIDI
     end
 
     def inspect
-      "#<#{self.class.name}:#{"0x%014x" % object_id} hw:#{@id} #{@name.inspect}>"
+      "#<#{self.class.name}:#{"0x%014x" % object_id} #{handle_name} #{@name.inspect}>"
     end
   end
 end

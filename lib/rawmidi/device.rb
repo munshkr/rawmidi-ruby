@@ -16,6 +16,10 @@ module RawMIDI
       @output = info[:output]
     end
 
+    def handle_name
+      "#{@card.handle_name},#{@id},0"
+    end
+
     def input?
       @input
     end
@@ -26,7 +30,7 @@ module RawMIDI
 
     def inspect
       io_s = [input? && 'in', output? && 'out'].compact.join('/')
-      "#<#{self.class.name}:#{"0x%014x" % object_id} hw:#{@card.id},#{@id} #{io_s} #{@name.inspect}>"
+      "#<#{self.class.name}:#{"0x%014x" % object_id} #{handle_name} #{io_s} #{@name.inspect}>"
     end
   end
 end
