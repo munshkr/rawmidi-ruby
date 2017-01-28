@@ -70,6 +70,8 @@ module RawMIDI
     attach_function :snd_rawmidi_write, [:pointer, :ulong, :size_t], :ssize_t
     # void snd_rawmidi_info_set_device(snd_rawmidi_info_t *obj, unsigned int val)
     attach_function :snd_rawmidi_info_set_device, [:pointer, :uint], :void
+    # void snd_rawmidi_info_set_subdevice (snd_rawmidi_info_t *obj, unsigned int val)
+    attach_function :snd_rawmidi_info_set_subdevice, [:pointer, :uint], :void
     # void snd_rawmidi_info_set_stream(snd_rawmidi_info_t *obj, snd_rawmidi_stream_t val)
     attach_function :snd_rawmidi_info_set_stream, [:pointer, :snd_rawmidi_stream], :void
     # unsigned int snd_rawmidi_info_get_subdevices_count(const snd_rawmidi_info_t *obj)
@@ -123,9 +125,11 @@ module RawMIDI
       end
 
       ctl_p = ctl_pp.read_pointer
-      yield ctl_p
+      res = yield(ctl_p)
 
       snd_ctl_close(ctl_p)
+
+      res
     end
 
     def self.card_get_name(id)
@@ -152,23 +156,25 @@ module RawMIDI
       name
     end
 
-    # FIXME
-    def self.device_info(card, device)
-      info_p = FFI::MemoryPointer.new(:char, SndRawMIDIInfo.size, true)
+    def self.subdevice_info(card, device, subdevice=0)
+      with_card(card) do |ctl_p|
+        info_p = FFI::MemoryPointer.new(:char, SndRawMIDIInfo.size, true)
 
-      snd_rawmidi_info_set_device(info_p, device)
+        snd_rawmidi_info_set_device(info_p, device)
+        snd_rawmidi_info_set_subdevice(info_p, subdevice)
 
-      snd_rawmidi_info_set_stream(info_p, :input)
-      snd_ctl_rawmidi_info(ctl_p, info_p)
-      subs_in = snd_rawmidi_info_get_subdevices_count(info_p)
+        snd_rawmidi_info_set_stream(info_p, :input)
+        status = snd_ctl_rawmidi_info(ctl_p, info_p)
+        is_input = status >= 0
 
-      snd_rawmidi_info_set_stream(info_p, :output)
-      snd_ctl_rawmidi_info(ctl_p, info_p)
-      subs_out = snd_rawmidi_info_get_subdevices_count(info_p)
+        snd_rawmidi_info_set_stream(info_p, :output)
+        status = snd_ctl_rawmidi_info(ctl_p, info_p)
+        is_output = status >= 0
 
-      name = snd_rawmidi_info_get_name(info_p)
+        name = snd_rawmidi_info_get_name(info_p)
 
-      {name: name, subs_in: subs_in, subs_out: subs_out}
+        {name: name, input: is_input, output: is_output}
+      end
     end
   end
 end
