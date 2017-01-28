@@ -22,7 +22,40 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+### List cards and devices
+
+```ruby
+RawMIDI::Card.all
+#=> [#<RawMIDI::Card:0x002af7bb0f26ec hw:0 "HDA Intel PCH">,
+     #<RawMIDI::Card:0x002af7bb0f269c hw:1 "CH345">]
+
+card = RawMIDI::Card[1]
+#=> #<RawMIDI::Card:0x002af7bb094b3c hw:1 "CH345">
+
+card.outputs
+#=> [#<RawMIDI::Output:0x002af7bb489760 hw:1,0,0 "CH345" closed>]
+
+RawMIDI::Output.all
+#=> [#<RawMIDI::Output:0x002af7bb489760 hw:1,0,0 "CH345" closed>]
+```
+
+### MIDI Output
+
+```ruby
+out = RawMIDI::Output.all.first
+out.open
+
+out.write [0x90, 60, 100]   # note on
+
+sleep 1
+
+out.write [0x90, 60, 0]     # note off
+out.close
+```
+
+### MIDI Input
+
+*to do*
 
 
 ## Development

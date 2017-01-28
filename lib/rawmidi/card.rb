@@ -32,11 +32,11 @@ module RawMIDI
       end
     end
 
-    def input_devices
+    def inputs
       devices.select(&:output?)
     end
 
-    def output_devices
+    def outputs
       devices.select(&:output?)
     end
 
