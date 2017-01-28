@@ -8,11 +8,10 @@ module RawMIDI
       end
     end
 
-    def initialize(card, id)
+    def initialize(card, id, **info)
       @id = id
       @card = card
 
-      info = API::Device.subdevice_info(card.id, id)
       @name = info[:name]
       @input = info[:input]
       @output = info[:output]

@@ -138,7 +138,7 @@ module RawMIDI
     end
 
     module Device
-      def self.each_id(card)
+      def self.each(card)
         return enum_for(__method__, card) unless block_given?
 
         Card.with_control(card) do |ctl_p|
@@ -154,30 +154,30 @@ module RawMIDI
             device = device_p.read_int
 
             break if device < 0
-            yield device
+
+            info = subdevice_info(ctl_p, device)
+            yield device, info
           end
         end
       end
 
-      def self.subdevice_info(card, device, subdevice=0)
-        Card.with_control(card) do |ctl_p|
-          info_p = FFI::MemoryPointer.new(:char, SndRawMIDIInfo.size, true)
+      def self.subdevice_info(ctl_p, device, subdevice=0)
+        info_p = FFI::MemoryPointer.new(:char, SndRawMIDIInfo.size, true)
 
-          API.snd_rawmidi_info_set_device(info_p, device)
-          API.snd_rawmidi_info_set_subdevice(info_p, subdevice)
+        API.snd_rawmidi_info_set_device(info_p, device)
+        API.snd_rawmidi_info_set_subdevice(info_p, subdevice)
 
-          API.snd_rawmidi_info_set_stream(info_p, :input)
-          status = API.snd_ctl_rawmidi_info(ctl_p, info_p)
-          is_input = status >= 0
+        API.snd_rawmidi_info_set_stream(info_p, :input)
+        status = API.snd_ctl_rawmidi_info(ctl_p, info_p)
+        is_input = status >= 0
 
-          API.snd_rawmidi_info_set_stream(info_p, :output)
-          status = API.snd_ctl_rawmidi_info(ctl_p, info_p)
-          is_output = status >= 0
+        API.snd_rawmidi_info_set_stream(info_p, :output)
+        status = API.snd_ctl_rawmidi_info(ctl_p, info_p)
+        is_output = status >= 0
 
-          name = API.snd_rawmidi_info_get_name(info_p)
+        name = API.snd_rawmidi_info_get_name(info_p)
 
-          {name: name, input: is_input, output: is_output}
-        end
+        {name: name, input: is_input, output: is_output}
       end
     end
   end

@@ -19,7 +19,7 @@ module RawMIDI
     end
 
     def devices
-      API::Device.each_id(@id).map { |id| Device.new(self, id) }
+      API::Device.each(@id).map { |id, info| Device.new(self, id, **info) }
     end
 
     def longname
