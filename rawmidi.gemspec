@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.authors       = ["Damián Silvani"]
   spec.email         = ["munshkr@gmail.com"]
 
-  spec.summary       = %q{Another FFI binding of ALSA RawMIDI for Ruby}
+  spec.summary       = %q{Ruby FFI binding for ALSA RawMIDI}
   spec.homepage      = "https://github.com/munshkr/rawmidi-rb"
   spec.license       = "MIT"
 
