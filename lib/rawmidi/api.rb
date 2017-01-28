@@ -79,101 +79,105 @@ module RawMIDI
     # const char* snd_rawmidi_info_get_name(const snd_rawmidi_info_t *obj)
     attach_function :snd_rawmidi_info_get_name, [:pointer], :string
 
-    def self.each_card_id
-      return enum_for(__method__) unless block_given?
+    module Card
+      def self.each_id
+        return enum_for(__method__) unless block_given?
 
-      card_p = FFI::MemoryPointer.new(:int).write_int(-1)
-
-      loop do
-        status = snd_card_next(card_p)
-        raise Error, snd_strerror(status) if status < 0
-        id = card_p.read_int
-
-        break if id < 0
-        yield id
-      end
-    end
-
-    def self.each_device_id(card)
-      return enum_for(__method__, card) unless block_given?
-
-      with_card(card) do |ctl_p|
-        device_p = FFI::MemoryPointer.new(:int).write_int(-1)
+        card_p = FFI::MemoryPointer.new(:int).write_int(-1)
 
         loop do
-          status = snd_ctl_rawmidi_next_device(ctl_p, device_p)
-          if status < 0
-            snd_ctl_close(ctl_p)
-            raise Error, "cannot determine device number: #{snd_strerror(status)}"
-          end
+          status = API.snd_card_next(card_p)
+          raise Error, API.snd_strerror(status) if status < 0
+          id = card_p.read_int
 
-          device = device_p.read_int
-
-          break if device < 0
-          yield device
+          break if id < 0
+          yield id
         end
       end
-    end
 
-    def self.with_card(card)
-      return enum_for(__method__, card) unless block_given?
+      def self.with_control(card)
+        return enum_for(__method__, card) unless block_given?
 
-      ctl_pp = FFI::MemoryPointer.new(:pointer)
-      status = snd_ctl_open(ctl_pp, "hw:#{card}", :readonly)
-      if status < 0
-        raise Error, "cannot open control for card #{card}: #{snd_strerror(status)}"
+        ctl_pp = FFI::MemoryPointer.new(:pointer)
+        status = API.snd_ctl_open(ctl_pp, "hw:#{card}", :readonly)
+        if status < 0
+          raise Error, "cannot open control for card #{card}: #{API.snd_strerror(status)}"
+        end
+
+        ctl_p = ctl_pp.read_pointer
+        res = yield(ctl_p)
+
+        API.snd_ctl_close(ctl_p)
+
+        res
       end
 
-      ctl_p = ctl_pp.read_pointer
-      res = yield(ctl_p)
+      def self.get_name(id)
+        name_pp = FFI::MemoryPointer.new(:pointer)
+        status = API.snd_card_get_name(id, name_pp)
+        raise Error, API.snd_strerror(status) if status < 0
 
-      snd_ctl_close(ctl_p)
+        name_p = name_pp.read_pointer
+        name = name_p.read_string
+        LibC.free(name_p)
 
-      res
+        name
+      end
+
+      def self.get_longname(id)
+        name_pp = FFI::MemoryPointer.new(:pointer)
+        status = API.snd_card_get_longname(id, name_pp)
+        raise Error, API.snd_strerror(status) if status < 0
+
+        name_p = name_pp.read_pointer
+        name = name_p.read_string
+        LibC.free(name_p)
+
+        name
+      end
     end
 
-    def self.card_get_name(id)
-      name_pp = FFI::MemoryPointer.new(:pointer)
-      status = snd_card_get_name(id, name_pp)
-      raise Error, snd_strerror(status) if status < 0
+    module Device
+      def self.each_id(card)
+        return enum_for(__method__, card) unless block_given?
 
-      name_p = name_pp.read_pointer
-      name = name_p.read_string
-      LibC.free(name_p)
+        Card.with_control(card) do |ctl_p|
+          device_p = FFI::MemoryPointer.new(:int).write_int(-1)
 
-      name
-    end
+          loop do
+            status = API.snd_ctl_rawmidi_next_device(ctl_p, device_p)
+            if status < 0
+              API.snd_ctl_close(ctl_p)
+              raise Error, "cannot determine device number: #{API.snd_strerror(status)}"
+            end
 
-    def self.card_get_longname(id)
-      name_pp = FFI::MemoryPointer.new(:pointer)
-      status = snd_card_get_longname(id, name_pp)
-      raise Error, snd_strerror(status) if status < 0
+            device = device_p.read_int
 
-      name_p = name_pp.read_pointer
-      name = name_p.read_string
-      LibC.free(name_p)
+            break if device < 0
+            yield device
+          end
+        end
+      end
 
-      name
-    end
+      def self.subdevice_info(card, device, subdevice=0)
+        Card.with_control(card) do |ctl_p|
+          info_p = FFI::MemoryPointer.new(:char, SndRawMIDIInfo.size, true)
 
-    def self.subdevice_info(card, device, subdevice=0)
-      with_card(card) do |ctl_p|
-        info_p = FFI::MemoryPointer.new(:char, SndRawMIDIInfo.size, true)
+          API.snd_rawmidi_info_set_device(info_p, device)
+          API.snd_rawmidi_info_set_subdevice(info_p, subdevice)
 
-        snd_rawmidi_info_set_device(info_p, device)
-        snd_rawmidi_info_set_subdevice(info_p, subdevice)
+          API.snd_rawmidi_info_set_stream(info_p, :input)
+          status = API.snd_ctl_rawmidi_info(ctl_p, info_p)
+          is_input = status >= 0
 
-        snd_rawmidi_info_set_stream(info_p, :input)
-        status = snd_ctl_rawmidi_info(ctl_p, info_p)
-        is_input = status >= 0
+          API.snd_rawmidi_info_set_stream(info_p, :output)
+          status = API.snd_ctl_rawmidi_info(ctl_p, info_p)
+          is_output = status >= 0
 
-        snd_rawmidi_info_set_stream(info_p, :output)
-        status = snd_ctl_rawmidi_info(ctl_p, info_p)
-        is_output = status >= 0
+          name = API.snd_rawmidi_info_get_name(info_p)
 
-        name = snd_rawmidi_info_get_name(info_p)
-
-        {name: name, input: is_input, output: is_output}
+          {name: name, input: is_input, output: is_output}
+        end
       end
     end
   end

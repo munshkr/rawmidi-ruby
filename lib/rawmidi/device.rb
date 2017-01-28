@@ -12,7 +12,7 @@ module RawMIDI
       @id = id
       @card = card
 
-      info = API.subdevice_info(card.id, id)
+      info = API::Device.subdevice_info(card.id, id)
       @name = info[:name]
       @input = info[:input]
       @output = info[:output]

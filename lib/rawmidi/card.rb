@@ -7,7 +7,7 @@ module RawMIDI
 
     class << self
       def all
-        API.each_card_id.map { |id| new(id) }
+        API::Card.each_id.map { |id| new(id) }
       end
 
       alias_method :[], :new
@@ -15,15 +15,15 @@ module RawMIDI
 
     def initialize(id)
       @id = id
-      @name = API.card_get_name(id)
+      @name = API::Card.get_name(id)
     end
 
     def devices
-      API.each_device_id(@id).map { |id| Device.new(self, id) }
+      API::Device.each_id(@id).map { |id| Device.new(self, id) }
     end
 
     def longname
-      API.card_get_longname(@id)
+      API::Card.get_longname(@id)
     end
   end
 end
