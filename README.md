@@ -5,6 +5,11 @@ ALSA RawMIDI bindings for Ruby
 
 ## Installation
 
+*NOTE*: This is still incomplete, so I still haven't published it to Rubygems.
+You'll need to clone the repository and install it with `rake install`, or use
+Bundler.
+
+
 Add this line to your application's Gemfile:
 
 ```ruby
