@@ -1,5 +1,6 @@
 require 'rawmidi/api'
-require 'rawmidi/device'
+require 'rawmidi/input'
+require 'rawmidi/output'
 
 module RawMIDI
   class Card
@@ -23,7 +24,20 @@ module RawMIDI
     end
 
     def devices
-      API::Device.each(@id).map { |id, info| Device.new(self, id, **info) }
+      API::Device.each(@id).flat_map do |id, info|
+        devs = []
+        devs << Input.new(self, id, name: info[:name]) if info[:input]
+        devs << Output.new(self, id, name: info[:name]) if info[:output]
+        devs
+      end
+    end
+
+    def input_devices
+      devices.select(&:output?)
+    end
+
+    def output_devices
+      devices.select(&:output?)
     end
 
     def longname

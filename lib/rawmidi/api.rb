@@ -3,6 +3,7 @@ require 'ffi'
 module RawMIDI
   module LibC
     extend FFI::Library
+
     ffi_lib FFI::Library::LIBC
 
     # Needed for some functions that expects the user frees memory after use
@@ -16,6 +17,8 @@ module RawMIDI
 
     enum :snd_ctl_mode, [:default, :nonblock, :async, :readonly]
     enum :snd_rawmidi_stream, [:output, :input]
+
+    MODE_FLAGS = {append: 0x1, nonblock: 0x2, sync: 0x4}
 
     # snd_ctl
     class SndCtl < FFI::Struct
@@ -62,12 +65,12 @@ module RawMIDI
     attach_function :snd_ctl_rawmidi_next_device, [:pointer, :pointer], :int
     attach_function :snd_ctl_rawmidi_info, [:pointer, :pointer], :int
 
-    # int snd_rawmidi_open(snd_rawmidi_t** input, snd_rawmidi_t output,
-    attach_function :snd_rawmidi_open, [:pointer, :pointer, :string, :int], :int
+    # int snd_rawmidi_open(snd_rawmidi_t** input, snd_rawmidi_t** output, const char* name, int mode)
+    attach_function :snd_rawmidi_open, [:pointer, :pointer, :string, :uint], :int
     # int snd_rawmidi_close(snd_rawmidi_t* rawmidi)
     attach_function :snd_rawmidi_close, [:pointer], :int
     # int snd_rawmidi_write(snd_rawmidi_t* output, char* data, int datasize)
-    attach_function :snd_rawmidi_write, [:pointer, :ulong, :size_t], :ssize_t
+    attach_function :snd_rawmidi_write, [:pointer, :pointer, :size_t], :ssize_t
     # void snd_rawmidi_info_set_device(snd_rawmidi_info_t *obj, unsigned int val)
     attach_function :snd_rawmidi_info_set_device, [:pointer, :uint], :void
     # void snd_rawmidi_info_set_subdevice (snd_rawmidi_info_t *obj, unsigned int val)
@@ -79,6 +82,7 @@ module RawMIDI
     # const char* snd_rawmidi_info_get_name(const snd_rawmidi_info_t *obj)
     attach_function :snd_rawmidi_info_get_name, [:pointer], :string
 
+
     module Card
       def self.each_id
         return enum_for(__method__) unless block_given?
@@ -87,7 +91,7 @@ module RawMIDI
 
         loop do
           status = API.snd_card_next(card_p)
-          raise Error, API.snd_strerror(status) if status < 0
+          fail Error, API.snd_strerror(status) if status < 0
           id = card_p.read_int
 
           break if id < 0
@@ -101,7 +105,7 @@ module RawMIDI
         ctl_pp = FFI::MemoryPointer.new(:pointer)
         status = API.snd_ctl_open(ctl_pp, "hw:#{card}", :readonly)
         if status < 0
-          raise Error, "cannot open control for card #{card}: #{API.snd_strerror(status)}"
+          fail Error, "cannot open control for card #{card}: #{API.snd_strerror(status)}"
         end
 
         ctl_p = ctl_pp.read_pointer
@@ -115,7 +119,7 @@ module RawMIDI
       def self.get_name(id)
         name_pp = FFI::MemoryPointer.new(:pointer)
         status = API.snd_card_get_name(id, name_pp)
-        raise Error, API.snd_strerror(status) if status < 0
+        fail Error, API.snd_strerror(status) if status < 0
 
         name_p = name_pp.read_pointer
         name = name_p.read_string
@@ -127,7 +131,7 @@ module RawMIDI
       def self.get_longname(id)
         name_pp = FFI::MemoryPointer.new(:pointer)
         status = API.snd_card_get_longname(id, name_pp)
-        raise Error, API.snd_strerror(status) if status < 0
+        fail Error, API.snd_strerror(status) if status < 0
 
         name_p = name_pp.read_pointer
         name = name_p.read_string
@@ -148,7 +152,7 @@ module RawMIDI
             status = API.snd_ctl_rawmidi_next_device(ctl_p, device_p)
             if status < 0
               API.snd_ctl_close(ctl_p)
-              raise Error, "cannot determine device number: #{API.snd_strerror(status)}"
+              fail Error, "cannot determine device number: #{API.snd_strerror(status)}"
             end
 
             device = device_p.read_int
@@ -178,6 +182,40 @@ module RawMIDI
         name = API.snd_rawmidi_info_get_name(info_p)
 
         {name: name, input: is_input, output: is_output}
+      end
+
+      def self.open(handle_name, direction, mode)
+        midi_pp = FFI::MemoryPointer.new(:pointer)
+        mode_n = API::MODE_FLAGS[mode]
+
+        status = case direction
+        when :output
+          API.snd_rawmidi_open(nil, midi_pp, handle_name, mode_n)
+        when :input
+          API.snd_rawmidi_open(midi_pp, nil, handle_name, mode_n)
+        else
+          fail Error, 'invalid direction'
+        end
+
+        if status < 0
+          fail Error, "cannot open device: #{API.snd_strerror(status)}"
+        end
+
+        midi_pp.read_pointer
+      end
+
+      def self.write(midi_p, buffer)
+        buf_p = FFI::MemoryPointer.new(:char, buffer.size)
+        buf_p.write_array_of_char(buffer)
+        API.snd_rawmidi_write(midi_p, buf_p, buffer.size)
+      end
+
+      def self.close(midi_p)
+        status = API.snd_rawmidi_close(midi_p)
+        if status < 0
+          fail Error, "cannot close device: #{API.snd_strerror(status)}"
+        end
+        true
       end
     end
   end
