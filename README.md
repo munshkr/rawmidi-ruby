@@ -3,28 +3,6 @@
 ALSA RawMIDI bindings for Ruby
 
 
-## Installation
-
-*NOTE*: This is still incomplete, so I still haven't published it to Rubygems.
-You'll need to clone the repository and install it with `rake install`, or use
-Bundler.
-
-
-Add this line to your application's Gemfile:
-
-```ruby
-gem 'rawmidi'
-```
-
-And then execute:
-
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install rawmidi
-
-
 ## Usage
 
 ### List cards and devices
@@ -61,6 +39,28 @@ out.close
 ### MIDI Input
 
 *to do*
+
+
+## Installation
+
+*NOTE*: This is still incomplete, so I still haven't published it to Rubygems.
+You'll need to clone the repository and install it with `rake install`, or use
+Bundler.
+
+
+Add this line to your application's Gemfile:
+
+```ruby
+gem 'rawmidi'
+```
+
+And then execute:
+
+    $ bundle
+
+Or install it yourself as:
+
+    $ gem install rawmidi
 
 
 ## Development
